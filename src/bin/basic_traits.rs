@@ -3,6 +3,41 @@ use std::{
     ops::{Add, Sub},
 };
 
+// Use of some common traits for Point2D type, either implemented automatically by compiler or manually.
+fn main() {
+    let p = Point2D::default();
+    let p1 = Point2D { x: 16, y: -11 };
+    println!("{p}"); // p (Point2D) implements  Display trait, and can be then printed to console
+
+    //As Point2D has Copy trait, assignment to p2 does not invalidate p
+    //In case Point2D didn't implement the trait, the usage of p after assigning it to p2 would cause a compilation error.
+    let p2 = p;
+    let p3: Point2D = (-2i16, 3i16).into();
+    println!("{p}");
+
+    // As Sub trait is implemented for Point2D, we can subtract 2 Point2D values to get a Vector2D
+    let v = p1 - p2;
+    let v2 = p1 - p3;
+    println!("vect {v:?}, {v2:?}");
+
+    let line = Line2D::FromOrigin(v);
+
+    let line_iter = line.iter();
+    println!("{line_iter:?}");
+    for pair in line_iter.enumerate() {
+        let (i, p) = pair;
+        println!("[{i}] = {p}");
+    }
+
+    let l_iter = Line2D::WithEndPoint(p1, p3).into_iter();
+    println!("{l_iter:?}");
+    for point in l_iter.enumerate(){
+
+        println!("{point:?}");
+    }
+}
+
+// By using derive attribute, the specified Traits are implemented automatically for Point2D by the compiler
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Point2D {
     x: i16,
@@ -13,6 +48,9 @@ struct Vector2D {
     x: i16,
     y: i16,
 }
+
+// Just a way to define lines, with an enum with variants, those variants can contain different types 
+// and as shown more than one value
 enum Line2D {
     WithDirection(Point2D, Vector2D),
     WithEndPoint(Point2D, Point2D),
@@ -162,32 +200,4 @@ impl Sub<Point2D> for Point2D {
         }
     }
 }
-fn main() {
-    let p = Point2D::default();
-    let p1 = Point2D { x: 16, y: -11 };
-    println!("{p}");
-    //As Point2D has Copy trait, assignment to p2 does not invalidate p
-    let p2 = p;
-    let p3: Point2D = (-2i16, 3i16).into();
-    println!("{p}");
 
-    let v = p1 - p2;
-    let v2 = p1 - p3;
-    println!("vect {v:?}, {v2:?}");
-
-    let line = Line2D::FromOrigin(v);
-
-    let line_iter = line.iter();
-    println!("{line_iter:?}");
-    for pair in line_iter.enumerate() {
-        let (i, p) = pair;
-        println!("[{i}] = {p}");
-    }
-
-    let l_iter = Line2D::WithEndPoint(p1, p3).into_iter();
-    println!("{l_iter:?}");
-    for point in l_iter.enumerate(){
-
-        println!("{point:?}");
-    }
-}

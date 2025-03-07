@@ -2,9 +2,9 @@ fn main() {
     // array_iteration();
     // vector_iteration();
 
-    // iterator_combine();
+    iterator_combine();
     // position_use();
-    palindrome_check();
+    // palindrome_check();
 }
 
 #[allow(dead_code)]
@@ -26,7 +26,7 @@ fn array_iteration() {
     for v in a16.into_iter() {
         sum -= i32::from(v);
     }
-    println!("After substraction of values {sum}");
+    println!("After subtraction of values {sum}");
 
     for v in a16.iter().step_by(3) {
         println!("{v:?}");
@@ -52,7 +52,12 @@ fn vector_iteration() {
     for v in v8.iter() {
         print!("{v:?},");
     }
-    // Collection consumed?
+    // By using a reference to the vector, the iterator obtained does not consume the collection/Vec.
+    for v in (&v8).into_iter() {
+        print!("{v:?},");
+    }
+
+    // Collection gets consumed
     for v in v8.into_iter() {
         print!("{v:?},");
     }
@@ -67,7 +72,7 @@ fn vector_iteration() {
 #[allow(dead_code)]
 fn iterator_combine() {
     let r1 = &[3i8, -7, 6];
-    let r2 = &[-4i8, 1, 0];
+    let r2 = &[-4i8, 1, 0, 12];
 
     println!("r1 chain r2");
     for v in r1.iter().chain(r2) {
@@ -85,6 +90,26 @@ fn iterator_combine() {
     println!("\nr1 zip r2");
     for v in r1.iter().zip(r2) {
         print!("{v:?} ");
+    }
+
+    //How we can alternate r1 with r2? taking one from each other and skipping one when exhausted?
+    println!("\nAlternate?:");
+    let r1r2_range = 0..(r1.len() + r2.len());
+    for v in r1r2_range.scan((r1.iter(), r2.iter()), |state, idx| {
+        
+        
+        let next = if idx % 2 == 0 {
+            state.0.next().or_else(|| state.1.next())
+        } else {
+            state.1.next().or_else(|| state.0.next())
+        };
+        next
+    }) {
+        print!("{v} ");
+    }
+
+    for z in r2.iter(){
+        print!("{z}");
     }
 }
 
@@ -125,8 +150,7 @@ fn is_palindrome(text: &str) -> bool {
     let mid = chars.len() / 2;
 
     for i in 0..=mid {
-
-        if ! chars[i].eq_ignore_ascii_case(&chars[chars.len() - (i + 1)]) {
+        if !chars[i].eq_ignore_ascii_case(&chars[chars.len() - (i + 1)]) {
             palindrome = false;
             break;
         }
