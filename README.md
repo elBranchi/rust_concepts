@@ -65,3 +65,30 @@ In order to be able to perform changes on a seemingly inmutable value RefCell ty
 The previously mentioned types are only usable on single-threaded applications/contexts as they are not meant to be thread-safe.
 
 [Source](src/bin/shared.rs)
+
+
+### directory utils [utils module]
+Under utils there is a sample module utils where a pair of iterator related functionalities have been implemented:
+- weave: combine iterators in a single iterator that produces the elements from the weaved iterators in a rotating approach
+- interleave: similar to previous one, but simpler. Producing same result as weave when only 2 iterators are involved.
+
+The way it works is as follows, having 3 iterators like these:
+
+it1 = A1, A2, A3, A4, A5
+it2 = B1, B2, B3, B4
+it3 = C1, C2, C3, C4, C5, C6, C7
+
+The results of **it1** *interleave*/*weave* **it2** would be:
+
+A1, B1, A2, B2, A3, B3, A4, B4, A5
+
+The results of **it1** *interleave* **it2** *interleave* **it3**:
+
+A1, C1, B1, C2, A2, C3, B2, C4, A3, C5, B3, C6, A4, C7, B4, A5
+
+[utils](src/utils/)
+### module_use.rs
+
+Binary/program using functionalities defined on utils module
+
+[module_use](src/bin/module_use.rs)
