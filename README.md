@@ -1,6 +1,9 @@
 # Rust concepts
 Collection of miscellaneous Rust programs and snippets showcasing/using Rust features.
 
+Coments on the code reflect my understanding of the different concepts being used, in some situations my understanding might 
+be incomplete so take the information with a grain of salt.
+
 ## Programs/binaries
 
 Under src/bin there a series of programs showing different Rust features:
@@ -92,3 +95,11 @@ A1, C1, B1, C2, A2, C3, B2, C4, A3, C5, B3, C6, A4, C7, B4, A5
 Binary/program using functionalities defined on utils module
 
 [module_use](src/bin/module_use.rs)
+
+
+### borrow_own.rs
+
+Some examples showing basic details about ownership, kind of references (mutable/non-mutable) and in which 
+kind of scenarios the compiler might not let you much further.
+
+[borrow_own.rs](src/bin/borrow_own.rs)
