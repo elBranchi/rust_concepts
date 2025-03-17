@@ -9,22 +9,23 @@ pub fn say_hello() {
     print!("hello");
 }
 
-pub trait IteratorExt<T>: Iterator<Item = T> {
+pub trait IteratorExt<'i, T>: Iterator<Item = T> + 'i {
     fn interleave<U>(self, other: U) -> Interleave<Self, U::IntoIter>
     where
         U: IntoIterator<Item = Self::Item>,
         Self: Sized;
 
-    fn weave<U>(self, other: U) -> Weave<Self, U::IntoIter>
+    fn weave<'o, 'w, O>(self, other: O) -> Weave<'w, Self::Item>
     where
-        U: IntoIterator<Item = Self::Item>,
+        'i: 'w,
+        'o: 'w,
+        O: IntoIterator<Item = Self::Item> + 'o,
         Self: Sized;
 }
 
-
-impl<E, I> IteratorExt<E> for I
+impl<'i, E, I> IteratorExt<'i, E> for I
 where
-    I: Iterator<Item = E>,
+    I: Iterator<Item = E> + 'i,
 {
     fn interleave<U>(self, other: U) -> Interleave<Self, U::IntoIter>
     where
@@ -34,12 +35,14 @@ where
         Interleave::new(self, other.into_iter())
     }
 
-    fn weave<U>(self, other: U) -> Weave<Self, U::IntoIter>
+    fn weave<'o, 'w, O>(self, other: O) -> Weave<'w, E>
     where
-        U: IntoIterator<Item = Self::Item>,
-        U::IntoIter: Iterator<Item = Self::Item>,
-        Self: Sized,
+        'i: 'w,
+        'o: 'w,
+        O: IntoIterator<Item = Self::Item> + 'o,
+        O::IntoIter: Iterator<Item = Self::Item>,
+        Self: Sized + 'i,
     {
-        Weave::new(self, other.into_iter())
+        Weave::<'w, Self::Item>::new(self, other.into_iter())
     }
 }

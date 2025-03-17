@@ -1,86 +1,77 @@
-pub struct Weave<I, O> {
-    start: Option<I>,
-    other: Vec<Option<O>>,
-    next_from: WeaveNextIterator,
+// While adding sample tests, noticed that the Weave iterator wasn't behaving in the expected
+// way (chained weave still behaved as chained interleaves).
+// So the implementation needs to be changed
+type WrappedNext<'a, E> = Box<dyn FnMut() -> Option<E> + 'a>;
+pub struct Weave<'w, E> {
+    fibers: Vec<WrappedNext<'w, E>>,
+    next_from: usize,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum WeaveNextIterator {
-    Initial,
-    NextAt(usize),
-}
-
-impl WeaveNextIterator {
-    fn get_next(self) -> Self {
-        let next = match self {
-            WeaveNextIterator::Initial => WeaveNextIterator::NextAt(0),
-            WeaveNextIterator::NextAt(idx) => WeaveNextIterator::NextAt(idx + 1),
-        };
-        next
-    }
-    fn get_next_wrap(self, len: usize) -> Self {
-        let next = self.get_next();
-        match next {
-            WeaveNextIterator::NextAt(idx) => {
-                if idx >= len {
-                    WeaveNextIterator::Initial
-                } else {
-                    next
-                }
-            }
-            _ => next,
-        }
-    }
-}
 
 // missing Iterator implementation for Weave, not sure
 // if there is a nice way to chain more than one iterator and get the results
 // in the same manner as in functions weave or weave_iter
 //
-impl<I, O> Weave<I, O> {
-    pub fn new(start: I, to_weave: O) -> Weave<I, O> {
-        Weave {
-            start: Some(start),
-            other: vec![Some(to_weave)],
-            next_from: WeaveNextIterator::Initial,
-        }
-    }
-    pub fn weave<It0, It1>(mut weave: Weave<It0, It1>, next_to_weave: It1) -> Weave<It0, It1>
+impl<'w, E> Weave<'w, E> {
+    pub fn new<'f1, 'f2, F1, F2>(first: F1, second: F2) -> Weave<'w, E>
     where
-        It0: Iterator,
-        It1: Iterator<Item = It0::Item>,
+        F1: Iterator<Item = E> + 'f1,
+        F2: Iterator<Item = E> + 'f2,
+        'f1: 'w,
+        'f2: 'w,
     {
-        weave.other.push(Some(next_to_weave));
+        let mut weave = Weave {
+            fibers: Vec::new(),
+            next_from: 0,
+        };
+
+        weave.fibers.push(Weave::<'w, E>::wrapped_next(first));
+        weave.fibers.push(Weave::<'w, E>::wrapped_next(second));
         weave
     }
 
+    fn wrapped_next<'a, T, IT>(mut iter: IT) -> WrappedNext<'a, T>
+    where
+        IT: Iterator<Item = T> + 'a,
+    {
+        let mut fused = false;
+        let wrap = move || {
+            let mut next = Option::<T>::None;
+            if !fused {
+                next = iter.next();
+                if next.is_none() {
+                    fused = true;
+                }
+            }
+            next
+        };
+        Box::new(wrap)
+    }
+    pub fn continue_weave<'f, F1>(mut self, fiber: F1) -> Self
+    where
+        F1: Iterator<Item = E> + 'f,
+        'f: 'w,
+    {
+        self.fibers.push(Self::wrapped_next(fiber));
+        self
+    }
 }
 
-impl<I, O> Iterator for Weave<I, O>
-where
-    I: Iterator,
-    O: Iterator<Item = I::Item>,
-{
-    type Item = I::Item;
+impl<'w, E> Iterator for Weave<'w, E> {
+    type Item = E;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut next = Option::<Self::Item>::None;
+        let start_on = self.next_from;
 
-        let current_iter = self.next_from;
-        let mut next_iter = current_iter;
-        while next.is_none() {
+        let mut next_found = false;
+        let mut next = Option::<E>::None;
 
-            match next_iter {
-                WeaveNextIterator::Initial => { next = get_next_or_fuse(&mut self.start); },
-                WeaveNextIterator::NextAt(idx) => { next = get_next_or_fuse(&mut self.other[idx]);},
-            }
-            next_iter = next_iter.get_next_wrap(self.other.len());
+        while !next_found {
+            next = self.fibers[self.next_from]();
+            self.next_from = (self.next_from + 1) % self.fibers.len();
 
-            if next_iter == current_iter {
-                break;
-            }
+            next_found = !next.is_none() || self.next_from == start_on;
         }
-        self.next_from = next_iter;
         next
     }
 }
@@ -143,14 +134,48 @@ where
     weave
 }
 
-#[inline]
-fn get_next_or_fuse<T>(iter: &mut Option<T>) -> Option<T::Item>
-where T: Iterator
-{
-    let next = iter.as_mut()?.next();
-    if next.is_none() {
-        *iter = None
+#[cfg(test)]
+mod tests {
+    use crate::utils::IteratorExt;
+
+    use super::*;
+
+    #[test]
+    fn test_weave_iterator() {
+        let a_s = (0..=4).map(|v| v * 2); // 0, 2, 4, 6, 8
+        let b_s = (1..3).map(|v| v * 5); // 5, 10
+        let c_s = (1..=6).map(|v| v * 7); // 7, 14, 21, 28, 35, 42
+
+        let weaved = a_s.weave(b_s).continue_weave(c_s);
+        assert_eq!(
+            weaved.collect::<Vec<_>>(),
+            [0, 5, 7, 2, 10, 14, 4, 21, 6, 28, 8, 35, 42]
+        );
     }
-    next
-    
+
+    #[test]
+    fn test_weave_function() {
+        let ones = [1; 3];
+        let twos = [2; 6];
+        let threes = [3; 2];
+
+        let param = [&ones[..], &twos, &threes];
+        let result = weave(&param[..]).map(|r| *r).collect::<Vec<_>>();
+        assert_eq!(result, [1, 2, 3, 1, 2, 3, 1, 2, 2, 2, 2]);
+    }
+
+    #[test]
+    fn test_weave_iter_function() {
+        let ones = [1; 3];
+        let twos = [2; 6];
+        let threes = [3; 2];
+
+        let param = [ones[..].iter(), twos.iter(), threes.iter()];
+
+        let result = weave_iter(param.into_iter())
+            .map(|v| *v)
+            .collect::<Vec<_>>();
+
+        assert_eq!(result, [1, 2, 3, 1, 2, 3, 1, 2, 2, 2, 2]);
+    }
 }

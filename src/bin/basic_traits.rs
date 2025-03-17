@@ -51,6 +51,7 @@ struct Vector2D {
 
 // Just a way to define lines, with an enum with variants, those variants can contain different types 
 // and as shown more than one value
+#[allow(dead_code)]
 enum Line2D {
     WithDirection(Point2D, Vector2D),
     WithEndPoint(Point2D, Point2D),
